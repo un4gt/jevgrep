@@ -1,0 +1,21 @@
+{
+  "name": "emrank-jevgrep-overlay",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "prepare:upstream": "bun scripts/upstream/prepare.ts",
+    "build:native": "bun scripts/build/native.ts",
+    "build": "bun scripts/build/cli.ts",
+    "test": "bun test --timeout 60000 tests",
+    "test:actions": "bun tests/actions/run.ts",
+    "verify": "bun scripts/verify/run.ts",
+    "check:upstream": "bun scripts/upstream/check.ts",
+    "pack": "bun scripts/release/pack.ts",
+    "check-types": "bun x --no-install tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "5.9.3"
+  }
+}
