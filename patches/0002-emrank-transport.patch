@@ -1,0 +1,47 @@
+From 7d6659b71358639f657f5914cd131202c54a0623 Mon Sep 17 00:00:00 2001
+From: EMRank Overlay <overlay@emrank.invalid>
+Date: Fri, 30 Oct 2026 01:44:54 +0800
+Subject: [PATCH 2/3] feat: inject EMRank signing fetch and isolate session
+ caches
+
+---
+ apps/cli/src/index.ts | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/apps/cli/src/index.ts b/apps/cli/src/index.ts
+index 67ae85d..b367130 100644
+--- a/apps/cli/src/index.ts
++++ b/apps/cli/src/index.ts
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env node
+ import { authenticate, loadCredentials } from "./auth";
+-import { emrankCommand } from "./emrank";
++import { emrankCommand, emrankCredentials, emrankCache } from "./emrank";
+ import { endpointFor } from "@repo/core/providers";
+ import type { Inventory, RetrievalResult } from "@repo/core";
+ import { storageDirectory } from "@repo/core/storage";
+@@ -65,7 +65,7 @@ async function main() {
+       return write("Cache cleared.\n");
+     }
+     case "doctor": {
+-      const credentials = await loadCredentials();
++      const credentials = await emrankCredentials(loadCredentials);
+       const endpoint = endpointFor(credentials);
+       const { createEvaluator, EvaluationFailure } = await import("@repo/core");
+       const evaluator = createEvaluator({
+@@ -128,10 +128,10 @@ async function main() {
+       return;
+     }
+     case "search": {
+-      const credentials = await loadCredentials();
++      const credentials = await emrankCredentials(loadCredentials);
+       const { retrieve, createEvaluator, createEvaluationCache } = await import("@repo/core");
+       const cache = createEvaluationCache({
+-        directory: storageDirectory("cache"),
++        directory: emrankCache(storageDirectory("cache"), credentials),
+         enabled: !command.noCache,
+       });
+       const evaluator = createEvaluator({
+-- 
+2.55.0.windows.3
+

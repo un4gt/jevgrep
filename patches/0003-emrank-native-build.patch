@@ -1,0 +1,46 @@
+From 09cb466822b1d8c7be08fa70bd61e962c1ef2d79 Mon Sep 17 00:00:00 2001
+From: EMRank Overlay <overlay@emrank.invalid>
+Date: Fri, 30 Oct 2026 01:44:54 +0800
+Subject: [PATCH 3/3] build: externalize native module and name the EMRank
+ distribution
+
+---
+ apps/cli/package.json | 3 ++-
+ scripts/build-cli.ts  | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/apps/cli/package.json b/apps/cli/package.json
+index b1d75b4..ce225df 100644
+--- a/apps/cli/package.json
++++ b/apps/cli/package.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "@dzhng/jevgrep",
++  "name": "@emrank/jevgrep",
+   "version": "0.8.5",
+   "description": "Content-aware source retrieval for coding agents",
+   "license": "MIT",
+@@ -30,6 +30,7 @@
+     "test": "bun test test"
+   },
+   "dependencies": {
++    "@emrank/jevgrep-native": "0.1.0",
+     "typescript": "5.9.3",
+     "web-tree-sitter": "0.27.0"
+   },
+diff --git a/scripts/build-cli.ts b/scripts/build-cli.ts
+index a8c8876..fd0b02f 100644
+--- a/scripts/build-cli.ts
++++ b/scripts/build-cli.ts
+@@ -18,7 +18,7 @@ const build = await Bun.build({
+   define: { JEVGREP_BUNDLED: "true" },
+   format: "esm",
+   metafile: true,
+-  external: ["web-tree-sitter", "typescript"],
++  external: ["web-tree-sitter", "typescript", "@emrank/jevgrep-native"],
+ });
+ if (!build.success) throw new AggregateError(build.logs, "CLI build failed");
+ await chmod(join(out, "bin/index.js"), 0o755);
+-- 
+2.55.0.windows.3
+
