@@ -1,0 +1,15 @@
+name: Local orchestration fixture
+on:
+  workflow_call:
+    inputs:
+      upstream-sha:
+        type: string
+        default: ''
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Observe whether validation was requested
+        run: |
+          echo LOCAL_VERIFY
+          test "$LOCAL_FAIL_VERIFY" != true
