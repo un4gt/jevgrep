@@ -1,0 +1,93 @@
+name: Upstream release sync
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force_test:
+        description: Re-run validation even when these commits have already passed
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+concurrency:
+  group: upstream-release-sync
+  cancel-in-progress: false
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      release: ${{ steps.candidate.outputs.release }}
+      need_test: ${{ steps.candidate.outputs.need_test }}
+      need_update_pr: ${{ steps.candidate.outputs.need_update_pr }}
+      test_key: ${{ steps.candidate.outputs.test_key }}
+      verified_run_url: ${{ steps.candidate.outputs.verified_run_url }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      - id: candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FORCE_TEST: ${{ inputs.force_test || false }}
+        run: bun run check:upstream
+  verify:
+    needs: detect
+    if: needs.detect.outputs.need_test == 'true'
+    uses: ./.github/workflows/compatibility.yml
+    with:
+      upstream-sha: ${{ needs.detect.outputs.sha }}
+  remember:
+    name: Remember successful upstream validation
+    needs: [detect, verify]
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      - name: Write record only after both platforms pass
+        env:
+          UPSTREAM_CHANNEL: release
+          UPSTREAM_SHA: ${{ needs.detect.outputs.sha }}
+          TEST_KEY: ${{ needs.detect.outputs.test_key }}
+        run: bun scripts/upstream/state.ts
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: upstream-verified-v1-${{ needs.detect.outputs.test_key }}
+          path: .work/upstream-verified.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+  propose:
+    needs: [detect, verify, remember]
+    # A skipped verify is acceptable only with a matching trusted success record.
+    # !cancelled() overrides implicit success(), which would skip this recovery path.
+    if: >-
+      ${{ !cancelled() && needs.detect.result == 'success' &&
+          needs.detect.outputs.need_update_pr == 'true' &&
+          ((needs.verify.result == 'success' && needs.remember.result == 'success') ||
+           (needs.verify.result == 'skipped' && needs.detect.outputs.verified_run_url != '')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      - name: Open reviewable update PR only after both platforms pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_SHA: ${{ needs.detect.outputs.sha }}
+          UPSTREAM_RELEASE: ${{ needs.detect.outputs.release }}
+          GH_REPO: ${{ github.repository }}
+          VERIFIED_RUN_URL: ${{ needs.verify.result == 'success' && format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) || needs.detect.outputs.verified_run_url }}
+        run: bun scripts/upstream/propose.ts
