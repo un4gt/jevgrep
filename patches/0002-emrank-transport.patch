@@ -5,22 +5,22 @@ Subject: [PATCH 2/3] feat: inject EMRank signing fetch and isolate session
  caches
 
 ---
- apps/cli/src/index.ts | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ apps/cli/src/index.ts | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
 
 diff --git a/apps/cli/src/index.ts b/apps/cli/src/index.ts
-index 67ae85d..b367130 100644
+index 21ebc3e..0984038 100644
 --- a/apps/cli/src/index.ts
 +++ b/apps/cli/src/index.ts
 @@ -1,6 +1,6 @@
  #!/usr/bin/env node
  import { authenticate, loadCredentials } from "./auth";
--import { emrankCommand } from "./emrank";
-+import { emrankCommand, emrankCredentials, emrankCache } from "./emrank";
+-import { emrankCommand, emrankHelp } from "./emrank";
++import { DEFAULT_SEARCH_CONCURRENCY, emrankCommand, emrankHelp, emrankCredentials, emrankCache } from "./emrank";
  import { endpointFor } from "@repo/core/providers";
  import type { Inventory, RetrievalResult } from "@repo/core";
  import { storageDirectory } from "@repo/core/storage";
-@@ -65,7 +65,7 @@ async function main() {
+@@ -65,7 +65,7 @@
        return write("Cache cleared.\n");
      }
      case "doctor": {
@@ -29,19 +29,47 @@ index 67ae85d..b367130 100644
        const endpoint = endpointFor(credentials);
        const { createEvaluator, EvaluationFailure } = await import("@repo/core");
        const evaluator = createEvaluator({
-@@ -128,10 +128,10 @@ async function main() {
+@@ -128,15 +128,18 @@
        return;
      }
      case "search": {
 -      const credentials = await loadCredentials();
+-      const { retrieve, createEvaluator, createEvaluationCache } = await import("@repo/core");
 +      const credentials = await emrankCredentials(loadCredentials);
-       const { retrieve, createEvaluator, createEvaluationCache } = await import("@repo/core");
++      const { retrieve, createEvaluator, createEvaluationCache, EvaluationFailure } = await import("@repo/core");
++      const authHint = credentials.cacheNamespace
++        ? "EMRank authorization failed. If jg emrank --status requires login, run jg emrank --login."
++        : undefined;
        const cache = createEvaluationCache({
 -        directory: storageDirectory("cache"),
 +        directory: emrankCache(storageDirectory("cache"), credentials),
          enabled: !command.noCache,
        });
        const evaluator = createEvaluator({
+         cache,
+-        concurrency: command.concurrency,
++        concurrency: command.concurrency ?? DEFAULT_SEARCH_CONCURRENCY,
+         requestLimit: command.maxRequests,
+         policyVersion: JSON.stringify(command.policy),
+         ...credentials,
+@@ -156,10 +159,17 @@
+           },
+           evaluator,
+         );
++      } catch (error) {
++        if (authHint && error instanceof EvaluationFailure && error.kind === "authentication")
++          throw new CliError(authHint);
++        throw error;
+       } finally {
+         progress.done();
+       }
+       if (pipeClosed) return;
++      if (authHint && result.issues.some(({ kind }) => kind === "authentication")) {
++        result.providerFailure ??= authHint;
++      }
+       await write(
+         renderResult(result, command.maxSourceBytes, command.maxOutputBytes, command.noLocations),
+       );
 -- 
 2.55.0.windows.3
 

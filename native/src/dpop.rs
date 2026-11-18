@@ -20,7 +20,7 @@ pub fn key() -> String {
     B64.encode(SigningKey::random(&mut OsRng).to_bytes())
 }
 
-fn signing_key(secret: &str) -> Result<SigningKey> {
+pub(crate) fn signing_key(secret: &str) -> Result<SigningKey> {
     let bytes = zeroize::Zeroizing::new(
         B64.decode(secret)
             .map_err(|_| fail("invalid stored DPoP key"))?,
@@ -47,11 +47,40 @@ pub fn proof(
     access: Option<&str>,
     nonce: Option<&str>,
 ) -> Result<String> {
+    Ok(create(secret, method, raw, access, nonce)?.encoded)
+}
+
+pub struct Proof {
+    pub encoded: String,
+    pub jti: String,
+    pub iat: u64,
+}
+
+pub fn create(
+    secret: &str,
+    method: &str,
+    raw: &str,
+    access: Option<&str>,
+    nonce: Option<&str>,
+) -> Result<Proof> {
+    encode(secret, method, raw, access, nonce, now(), pkce::random())
+}
+
+fn encode(
+    secret: &str,
+    method: &str,
+    raw: &str,
+    access: Option<&str>,
+    nonce: Option<&str>,
+    iat: u64,
+    jti: String,
+) -> Result<Proof> {
     let mut url = Url::parse(raw).map_err(|_| fail("invalid DPoP URL"))?;
     url.set_query(None);
     url.set_fragment(None);
     let header = json!({ "typ": "dpop+jwt", "alg": "ES256", "jwk": jwk(secret)? });
-    let mut claims = json!({ "jti": pkce::random(), "htm": method.to_ascii_uppercase(), "htu": url.as_str(), "iat": now() });
+    let mut claims =
+        json!({ "jti": jti, "htm": method.to_ascii_uppercase(), "htu": url.as_str(), "iat": iat });
     if let Some(access) = access {
         claims["ath"] = json!(pkce::hash(access));
     }
@@ -64,12 +93,31 @@ pub fn proof(
         B64.encode(claims.to_string())
     );
     let signature: Signature = signing_key(secret)?.sign(signing_input.as_bytes());
-    Ok(format!(
-        "{signing_input}.{}",
-        B64.encode(signature.to_bytes())
-    ))
+    Ok(Proof {
+        encoded: format!("{signing_input}.{}", B64.encode(signature.to_bytes())),
+        jti,
+        iat,
+    })
+}
+
+// Only the Rust test harness can select a clock; never part of the N-API or
+// environment-driven runtime. Uses the exact same JWT encoding/signing path.
+#[cfg(test)]
+pub(crate) fn fixture_proof(
+    secret: &str,
+    method: &str,
+    target: &str,
+    access: Option<&str>,
+    nonce: Option<&str>,
+    now: u64,
+) -> Result<Proof> {
+    encode(secret, method, target, access, nonce, now, pkce::random())
 }
 
 pub fn valid_nonce(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 1024 && value.bytes().all(|c| (0x21..=0x7e).contains(&c))
+    !value.is_empty()
+        && value.len() <= 1024
+        && value
+            .bytes()
+            .all(|c| (0x21..=0x7e).contains(&c) && c != b'"' && c != b'\\')
 }

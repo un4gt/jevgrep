@@ -1,16 +1,28 @@
 {
   "name": "@emrank/jevgrep-native",
-  "version": "0.1.0",
+  "version": "0.8.6",
   "description": "Rust OAuth, PKCE, DPoP and secure credentials for EMRank jevgrep",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/un4gt/jevgrep.git"
+  },
   "license": "MIT",
   "type": "module",
   "main": "index.js",
   "types": "index.d.ts",
-  "files": ["index.js", "index.d.ts", "LICENSE"],
-  "engines": { "node": ">=22" },
-  "optionalDependencies": {
-    "@emrank/jevgrep-native-win32-x64-msvc": "0.1.0",
-    "@emrank/jevgrep-native-linux-x64-gnu": "0.1.0"
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
   },
-  "publishConfig": { "access": "public" }
+  "optionalDependencies": {
+    "@emrank/jevgrep-native-win32-x64-msvc": "0.8.6",
+    "@emrank/jevgrep-native-linux-x64-gnu": "0.8.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

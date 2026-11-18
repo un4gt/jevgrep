@@ -1,0 +1,27 @@
+{
+  "origin": "Node crypto / deterministic public fixture keys; not an official-client attestation",
+  "now": 1800000000,
+  "issuer": "https://gateway.example.test",
+  "target": "https://gateway.example.test/v1/systemone",
+  "token": "fixture-opaque-access-token",
+  "attester_jwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "b_A7lJJBzh2t1DUZ5pYOCoW0GmmgXDKBA6orzhWUyhY",
+    "y": "PE91OlW_AdxT9sCwx-7ni0DG_30lqW4igrmJzvccFEo"
+  },
+  "client_jwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "WRq3ceu8_W2cuQlNEGUordGmnUTCwfYn8InsWLnGGt8",
+    "y": "n05qvw0EXAxpOjxorXyXynK-ZN70om_s0mPdmKkngPA"
+  },
+  "jkt": "EzY02lOLYcbnY5z-qyt59-EouE6B2dzqtZugyogVpcM",
+  "nonce": "AAAAAQAAAABrSdIABwcHBwcHBwcHBwcHBwcHB-HKQThFN_pZ0FZG-KP1qmoeT3RPWvvS3NmIo9jFyx_C",
+  "proof": "eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4IjoiV1JxM2NldThfVzJjdVFsTkVHVW9yZEdtblVUQ3dmWW44SW5zV0xuR0d0OCIsInkiOiJuMDVxdncwRVhBeHBPanhvclh5WHluSy1aTjcwb21fczBtUGRtS2tuZ1BBIn19.eyJqdGkiOiJwcm9vZi1maXh0dXJlIiwiaHRtIjoiUE9TVCIsImh0dSI6Imh0dHBzOi8vZ2F0ZXdheS5leGFtcGxlLnRlc3QvdjEvc3lzdGVtb25lIiwiaWF0IjoxODAwMDAwMDAwLCJub25jZSI6IkFBQUFBUUFBQUFCclNkSUFCd2NIQndjSEJ3Y0hCd2NIQndjSEItSEtRVGhGTl9wWjBGWkctS1AxcW1vZVQzUlBXdnZTM05tSW85akZ5eF9DIiwiYXRoIjoiZDNCWEFzMllxYUhRUEM0QkpwTnd4cHNwMHhvcTd6NDFrWXRqZEo2ZjFkayJ9.W5RMtHKpDUdyXownaHx7KDNcP2gR-FbIh6Cr2PzNvZJ2vHYvV_gHngt693h6hRa_8uMlI0Jv5G7j5OCBqUnYjw",
+  "attestation": "eyJ0eXAiOiJvYXV0aC1jbGllbnQtYXR0ZXN0YXRpb24rand0IiwiYWxnIjoiRVMyNTYiLCJraWQiOiJpc3N1ZXIta2V5LTEifQ.eyJpc3MiOiJodHRwczovL2F0dGVzdGVyLmV4YW1wbGUudGVzdCIsInN1YiI6ImNsaWVudC1hbHBoYSIsImlhdCI6MTgwMDAwMDAwMCwiZXhwIjoxODAwMDAwMzAwLCJjbmYiOnsiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4IjoiV1JxM2NldThfVzJjdVFsTkVHVW9yZEdtblVUQ3dmWW44SW5zV0xuR0d0OCIsInkiOiJuMDVxdncwRVhBeHBPanhvclh5WHluSy1aTjcwb21fczBtUGRtS2tuZ1BBIn19LCJodHRwczovL2VtcmFuay50ZWNoL29hdXRoL2NsaWVudC1wb2xpY3kiOiJuYXRpdmUtdGVzdC1wb2xpY3ktdjEifQ.R3efeZa7HdV22I8iTfDmc7LNfLXkG75GY-tJH64oyIPYdVMBLuEaQTPKeKLk6S53KB458NtAAzBbo5xqqpo7cA",
+  "body": "{\"model\":\"test/model\",\"input\":\"content under signature\"}",
+  "content_digest": "sha-256=:TwManrhvI1Tqsq4BUoFfLUDs+mDU1YN8T6vfI4q1qas=:",
+  "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-type\" \"content-digest\" \"dpop\");created=1800000000;expires=1800000060;nonce=\"proof-fixture\";alg=\"ecdsa-p256-sha256\";keyid=\"EzY02lOLYcbnY5z-qyt59-EouE6B2dzqtZugyogVpcM\";tag=\"oauth-resource-v1\"",
+  "signature": "sig1=:17u7V8eVfAq8FgUH7iDN8QOARST4M9gzc5/6MyhfNdg5tRpnszosHgTvaWesQpjpf5kBl1pXcfle+oMPW/UN7A==:"
+}
