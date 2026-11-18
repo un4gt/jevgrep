@@ -1,10 +1,6 @@
 name: Local orchestration fixture
 on:
   workflow_call:
-    inputs:
-      upstream-sha:
-        type: string
-        default: ''
 jobs:
   verify:
     runs-on: ubuntu-24.04

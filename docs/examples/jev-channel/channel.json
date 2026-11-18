@@ -1,0 +1,6 @@
+{
+  "name": "jev",
+  "adapter_id": "typesafe",
+  "base_url": "https://api.site",
+  "enabled": false
+}

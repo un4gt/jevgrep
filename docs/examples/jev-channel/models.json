@@ -1,0 +1,11 @@
+{
+  "models": [
+    {
+      "model_id": "typesafe/jev-latest",
+      "upstream_model": "jev-latest",
+      "kind": "decision",
+      "priority": 100
+    }
+  ],
+  "enabled": false
+}

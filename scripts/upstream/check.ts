@@ -1,47 +1,59 @@
 import { resolve } from "node:path";
-import { mkdir, appendFile } from "node:fs/promises";
-import { root, lock } from "../common";
-import { newer } from "./versions";
-import { decide, findVerifiedRun, githubApi, testKey, updateBranch, type Channel } from "./state";
-const pin = await lock();
-const api = githubApi(process.env.GITHUB_API_URL, process.env.GITHUB_TOKEN);
-const upstreamRepository = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\.git$/.exec(pin.repository)?.[1];
-if (!upstreamRepository) throw new Error("Expected a GitHub upstream repository");
-const main = process.argv.includes("--main");
-const channel: Channel = main ? "main" : "release";
-const releases = main ? [] : await api(`/repos/${upstreamRepository}/releases?per_page=100`);
-const stable = releases.filter((r: any) => !r.draft && !r.prerelease && /^v\d+\.\d+\.\d+$/.test(r.tag_name));
-let release = main ? "main" : pin.release;
-for (const item of stable) if (newer(item.tag_name, release)) release = item.tag_name;
-if (typeof release !== "string" || !/^(main|v\d+\.\d+\.\d+)$/.test(release)) throw new Error("Expected a stable upstream release");
-const { sha } = await api(`/repos/${upstreamRepository}/commits/${encodeURIComponent(release)}`);
-if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Invalid upstream SHA");
-if (release === pin.release && sha !== pin.sha) throw new Error("Pinned upstream tag moved; manual review required");
-const changed = sha !== pin.sha;
-const repository = process.env.GITHUB_REPOSITORY;
-const sourceSha = process.env.GITHUB_SHA;
-const event = process.env.GITHUB_EVENT_PATH ? await Bun.file(process.env.GITHUB_EVENT_PATH).json() : {};
-const defaultBranch = event.repository?.default_branch;
-let key = "", verifiedRun: number | undefined, existingPr = false;
-if (repository && sourceSha) {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
-  key = testKey(channel, sha, sourceSha);
-  if ((main || changed || process.env.FORCE_TEST === "true") && defaultBranch
-    && process.env.GITHUB_REF === `refs/heads/${defaultBranch}`) {
-    verifiedRun = await findVerifiedRun(api, { repository, sourceSha, defaultBranch, channel, key });
-  }
-  if (!main && changed) {
-    const head = `${repository.split("/")[0]}:${updateBranch(release, sha)}`;
-    const prs = await api(`/repos/${repository}/pulls?state=all&head=${encodeURIComponent(head)}&per_page=100`);
-    // A deliberately closed update PR must not be recreated every day.
-    existingPr = prs.some((pr: any) => pr.head?.ref === updateBranch(release, sha) && pr.head?.repo?.full_name === repository);
-  }
+import { mkdir } from "node:fs/promises";
+import { parseArgs } from "node:util";
+import { root } from "../common";
+import { newer, stableVersion } from "./versions";
+
+export type Pin = { repository: string; release: string; sha: string };
+export type Api = (path: string) => Promise<any>;
+
+export function githubApi(base = process.env.GITHUB_API_URL || "https://api.github.com", token = process.env.GITHUB_TOKEN || ""): Api {
+  return async path => {
+    const response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
+      headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      redirect: "error", signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`GitHub lookup failed: HTTP ${response.status} (${path})`);
+    return response.json();
+  };
 }
-const decision = decide({ channel, changed, verified: verifiedRun !== undefined, existingPr, force: process.env.FORCE_TEST === "true" });
-const verified_run_url = verifiedRun ? `${process.env.GITHUB_SERVER_URL || "https://github.com"}/${repository}/actions/runs/${verifiedRun}` : "";
-const candidate = { repository: pin.repository, release, sha, changed, ...decision, test_key: key, verified_run_url };
-await mkdir(resolve(root, ".work"), { recursive: true });
-await Bun.write(resolve(root, ".work/candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
-if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT,
-  Object.entries(candidate).filter(([name]) => name !== "repository").map(([name, value]) => `${name}=${value}\n`).join(""));
-console.log(JSON.stringify(candidate));
+
+export async function discoverUpstream(pin: Pin, api: Api) {
+  const repository = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\.git$/.exec(pin.repository)?.[1];
+  if (!repository) throw new Error("Expected a GitHub upstream repository");
+  stableVersion(pin.release);
+  if (!/^[a-f0-9]{40}$/.test(pin.sha)) throw new Error("Pinned upstream must be a full commit SHA");
+  let release = pin.release;
+  const releases = await api(`/repos/${repository}/releases?per_page=100`);
+  for (const item of releases) {
+    if (!item.draft && !item.prerelease && /^v\d+\.\d+\.\d+$/.test(item.tag_name) && newer(item.tag_name, release))
+      release = item.tag_name;
+  }
+  const { sha } = await api(`/repos/${repository}/commits/${encodeURIComponent(release)}`);
+  if (typeof sha !== "string" || !/^[a-f0-9]{40}$/.test(sha)) throw new Error("Invalid upstream SHA");
+  if (release === pin.release && sha !== pin.sha) throw new Error("Pinned upstream tag moved; manual review required");
+  return { repository: pin.repository, release, sha, changed: sha !== pin.sha || release !== pin.release };
+}
+
+export async function checkUpstream(args: string[], options: { directory?: string; api?: Api; actions?: boolean } = {}) {
+  const { values } = parseArgs({ args, strict: true, allowPositionals: false,
+    options: { apply: { type: "boolean" } } });
+  if (values.apply && (options.actions ?? process.env.GITHUB_ACTIONS === "true"))
+    throw new Error("Upstream synchronization is local-only; GitHub Actions only validates and releases the pinned version");
+  const directory = options.directory ?? root;
+  const path = resolve(directory, "upstream.lock");
+  const original = await Bun.file(path).text();
+  const pin: Pin = JSON.parse(original);
+  const candidate = await discoverUpstream(pin, options.api ?? githubApi());
+  if (values.apply && candidate.changed) {
+    if (await Bun.file(path).text() !== original) throw new Error("upstream.lock changed during discovery; retry after reviewing it");
+    await Bun.write(path, JSON.stringify({ ...pin, release: candidate.release, sha: candidate.sha }, null, 2) + "\n");
+  }
+  const result = { ...candidate, applied: Boolean(values.apply && candidate.changed) };
+  await mkdir(resolve(directory, ".work"), { recursive: true });
+  await Bun.write(resolve(directory, ".work/candidate.json"), JSON.stringify(result, null, 2) + "\n");
+  return result;
+}
+
+if (import.meta.main) console.log(JSON.stringify(await checkUpstream(process.argv.slice(2))));

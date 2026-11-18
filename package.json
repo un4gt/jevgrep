@@ -11,6 +11,7 @@
     "test:actions": "bun tests/actions/run.ts",
     "verify": "bun scripts/verify/run.ts",
     "check:upstream": "bun scripts/upstream/check.ts",
+    "sync:upstream": "bun scripts/upstream/check.ts --apply",
     "pack": "bun scripts/release/pack.ts",
     "check-types": "bun x --no-install tsc --noEmit"
   },

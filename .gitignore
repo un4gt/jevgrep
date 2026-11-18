@@ -1,4 +1,6 @@
 .work/
+.playwright-cli/
+__pycache__/
 node_modules/
 native/target/
 native/*.node
