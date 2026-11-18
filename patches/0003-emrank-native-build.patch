@@ -7,7 +7,8 @@ Subject: [PATCH 3/3] build: externalize native module and name the EMRank
 ---
  apps/cli/package.json | 3 ++-
  scripts/build-cli.ts  | 2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ test/parser/parity.test.ts | 2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/apps/cli/package.json b/apps/cli/package.json
 index b1d75b4..ce225df 100644
@@ -41,6 +42,19 @@ index a8c8876..fd0b02f 100644
  });
  if (!build.success) throw new AggregateError(build.logs, "CLI build failed");
  await chmod(join(out, "bin/index.js"), 0o755);
+diff --git a/test/parser/parity.test.ts b/test/parser/parity.test.ts
+index 07cbe51..ac4f6de 100644
+--- a/test/parser/parity.test.ts
++++ b/test/parser/parity.test.ts
+@@ -7,7 +7,7 @@ import { runParser } from "../../packages/core/src/parser.ts";
+ const reference = (helper: string, input: string) => {
+   const result = spawnSync(
+     "python3",
+-    ["-I", fileURLToPath(new URL(`./reference/python/${helper}.py`, import.meta.url))],
++    ["-I", "-X", "utf8", fileURLToPath(new URL(`./reference/python/${helper}.py`, import.meta.url))],
+     { input, encoding: "utf8" },
+   );
+   assert.equal(result.status, 0, result.stderr);
 -- 
 2.55.0.windows.3
 
