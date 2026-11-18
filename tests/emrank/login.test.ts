@@ -5,6 +5,9 @@ import { command, sandbox, spawn, nativeCommand } from "../helpers";
 import { pathToFileURL } from "node:url";
 import { oauthServer } from "./server";
 
+// Tokens at the fixture's 30-second refresh threshold are immediately eligible.
+const refreshableLifetimeSeconds = 30;
+
 async function login(env: Record<string, string | undefined>, spoof = false, callbackStatus = 200) {
   const p = spawn(["emrank", "--login"], env);
   let stdout = "", authorized = false;
@@ -110,20 +113,19 @@ test("refresh is serialized across CLI processes, invalid_grant clears credentia
   const env = { ...box.env, EMRANK_ISSUER: server.origin, EMRANK_MODEL: "fixture/jev", EMRANK_ALLOW_HTTP_LOOPBACK: "1" };
   try {
     expect((await command(["auth", "--provider", "custom", "--base-url", `${server.origin}/v1`, "--model", "original", "--stdin"], env, "original-fixture-key\n")).code).toBe(0);
-    server.state.expiresIn = 31;
+    server.state.expiresIn = refreshableLifetimeSeconds;
     expect((await login(env)).code).toBe(0);
-    await Bun.sleep(2100);
+    const refreshesAfterLogin = server.state.refreshes;
     server.state.expiresIn = 3600;
     server.state.usernameMode = "renamed";
     const results = await Promise.all([command(["doctor"], env), command(["doctor"], env), command(["doctor"], env)]);
     expect(results.map(r => r.code)).toEqual([0, 0, 0]);
-    expect(server.state.refreshes).toBe(1);
+    expect(server.state.refreshes - refreshesAfterLogin).toBe(1);
     const refreshed = JSON.parse((await command(["emrank", "--status"], env)).stdout);
     expect(refreshed.username).toBe("alice-renamed");
     expect(refreshed.accountId).toBe("account-a");
-    server.state.expiresIn = 31;
+    server.state.expiresIn = refreshableLifetimeSeconds;
     expect((await login(env)).code).toBe(0);
-    await Bun.sleep(2100);
     server.state.invalidGrant = true;
     const rejected = await command(["Where are events recorded?", box.source, "--no-cache"], env);
     expect(rejected.code).toBe(1);
@@ -218,9 +220,9 @@ test("refresh refuses an unchanged refresh token and preserves provider selectio
   const box = await sandbox(), server = oauthServer();
   const env = { ...box.env, EMRANK_ISSUER: server.origin, EMRANK_MODEL: "fixture/jev", EMRANK_ALLOW_HTTP_LOOPBACK: "1" };
   try {
-    server.state.expiresIn = 31;
+    server.state.expiresIn = refreshableLifetimeSeconds;
     expect((await login(env)).code).toBe(0);
-    await Bun.sleep(2100);
+    const refreshesAfterLogin = server.state.refreshes;
     server.state.nonRotatingRefresh = true;
     const result = await command(["doctor"], env);
     expect(result.code).not.toBe(0);
@@ -229,7 +231,7 @@ test("refresh refuses an unchanged refresh token and preserves provider selectio
     expect(status.requiresLogin).toBe(true);
     expect(status.authenticated).toBe(false);
     expect((await command(["doctor"], env)).code).not.toBe(0);
-    expect(server.state.refreshes).toBe(1);
+    expect(server.state.refreshes - refreshesAfterLogin).toBe(1);
     expect(server.state.resourceAttempts).toBe(0);
   } finally { await command(["emrank", "--logout"], env); server.stop(); await box.cleanup(); }
 });
@@ -369,10 +371,9 @@ test("failed refresh contracts do not switch accounts or send inference, while t
   const env = { ...box.env, EMRANK_ISSUER: server.origin, EMRANK_MODEL: "fixture/jev", EMRANK_ALLOW_HTTP_LOOPBACK: "1" };
   try {
     for (const mode of ["missing-refresh", "changed-account", "temporary-error"]) {
-      server.state.expiresIn = 31;
+      server.state.expiresIn = refreshableLifetimeSeconds;
       server.state.omitRefresh = false; server.state.refreshAccount = ""; server.state.refreshError = "";
       expect((await login(env)).code).toBe(0);
-      await Bun.sleep(2100);
       server.state.omitRefresh = mode === "missing-refresh";
       server.state.refreshAccount = mode === "changed-account" ? "another-account" : "";
       server.state.refreshError = mode === "temporary-error" ? "temporarily_unavailable" : "";
